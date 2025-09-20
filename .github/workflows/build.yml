@@ -9,6 +9,10 @@ on:
     paths:
       - 'packages/**'
 
+permissions:
+  contents: read   # Required to checkout repository
+  actions: write   # Required to upload artifacts
+
 jobs:
   build:
     runs-on: ubuntu-latest

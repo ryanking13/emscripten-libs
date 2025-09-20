@@ -1,0 +1,177 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      library:
+        description: 'Package to build and release'
+        required: true
+        type: string
+      release_tag:
+        description: 'Release tag (optional, will auto-generate if not provided)'
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      emscripten-version: ${{ steps.setup-env.outputs.emscripten-version }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+        with:
+          fetch-depth: 0  # Fetch full history for proper versioning
+
+      - name: Setup Build Environment
+        id: setup-env
+        uses: ./.github/actions/setup-build-environment
+
+      - name: Build package
+        run: |
+          pyodide build-recipes "${{ github.event.inputs.library }}"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: release-assets-${{ github.event.inputs.library }}
+          path: |
+            releases/
+          retention-days: 1  # Short retention since we'll create release immediately
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          name: release-assets-${{ github.event.inputs.library }}
+          path: ./release-assets
+
+      - name: Generate release tag
+        id: generate-tag
+        run: |
+          if [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            TAG="${{ github.event.inputs.release_tag }}"
+          else
+            # Generate tag: libname-date-emscripten_version
+            DATE=$(date +%Y%m%d)
+            EMSCRIPTEN_VERSION="${{ needs.build.outputs.emscripten-version }}"
+            LIBRARY_NAME="${{ github.event.inputs.library }}"
+            TAG="${LIBRARY_NAME}-${DATE}-em${EMSCRIPTEN_VERSION}"
+          fi
+          
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "Generated release tag: ${TAG}"
+
+      - name: Create compressed archive
+        id: create-archive
+        run: |
+          TAG="${{ steps.generate-tag.outputs.tag }}"
+          ARCHIVE_NAME="${TAG}.tar.gz"
+          
+          echo "Creating compressed archive: ${ARCHIVE_NAME}"
+          
+          # Create archive from release-assets directory
+          # Use -C to change directory so the archive doesn't include the ./release-assets path
+          if [ -d "./release-assets" ] && [ "$(ls -A ./release-assets)" ]; then
+            tar -czf "${ARCHIVE_NAME}" -C ./release-assets .
+            
+            # Verify archive was created
+            if [ -f "${ARCHIVE_NAME}" ]; then
+              echo "✓ Archive created successfully: ${ARCHIVE_NAME}"
+              echo "Archive size: $(du -h ${ARCHIVE_NAME} | cut -f1)"
+              echo "Archive contents:"
+              tar -tzf "${ARCHIVE_NAME}" | head -20
+              if [ $(tar -tzf "${ARCHIVE_NAME}" | wc -l) -gt 20 ]; then
+                echo "... and $(($(tar -tzf "${ARCHIVE_NAME}" | wc -l) - 20)) more files"
+              fi
+            else
+              echo "❌ Failed to create archive"
+              exit 1
+            fi
+          else
+            echo "❌ No release assets found to archive"
+            exit 1
+          fi
+          
+          echo "archive-name=${ARCHIVE_NAME}" >> $GITHUB_OUTPUT
+          echo "archive-path=./${ARCHIVE_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Create release notes
+        id: release-notes
+        run: |
+          LIBRARY_NAME="${{ github.event.inputs.library }}"
+          EMSCRIPTEN_VERSION="${{ needs.build.outputs.emscripten-version }}"
+          DATE=$(date +%Y-%m-%d)
+          ARCHIVE_NAME="${{ steps.create-archive.outputs.archive-name }}"
+          
+          cat > release_notes.md << EOF
+          # ${LIBRARY_NAME}
+          
+          Static library build for **${LIBRARY_NAME}**
+          
+          ## Build Information
+          - **Build Date**: ${DATE}
+          - **Emscripten Version**: ${EMSCRIPTEN_VERSION}
+          - **Archive**: \`${ARCHIVE_NAME}\`
+          
+          ## Download & Usage
+          
+          1. **Download the archive**: \`${ARCHIVE_NAME}\`
+          2. **Extract**: \`tar -xzf ${ARCHIVE_NAME}\`
+          3. **Use the contents**:
+             - Static library files (\`.a\` files)
+             - Header files (\`.h\` files)
+             - Build metadata and configuration files
+          
+          ## Integration
+          This package can be consumed by Pyodide recipes or other WebAssembly projects.
+          
+          \`\`\`bash
+          # Extract the archive
+          tar -xzf ${ARCHIVE_NAME}
+          
+          # The extracted files will be in the current directory
+          ls -la
+          \`\`\`
+          EOF
+          
+          echo "Release notes created"
+
+      - name: List release assets
+        run: |
+          echo "Release assets before archiving:"
+          find ./release-assets -type f -exec echo "  {}" \;
+          echo ""
+          echo "Compressed archive to be uploaded:"
+          echo "  ${{ steps.create-archive.outputs.archive-path }}"
+          echo "  Size: $(du -h ${{ steps.create-archive.outputs.archive-path }} | cut -f1)"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836  # v2.3.3
+        with:
+          tag_name: ${{ steps.generate-tag.outputs.tag }}
+          name: ${{ github.event.inputs.library }}
+          body_path: release_notes.md
+          files: ${{ steps.create-archive.outputs.archive-path }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release summary
+        run: |
+          echo "🎉 Successfully created release:"
+          echo "  Tag: ${{ steps.generate-tag.outputs.tag }}"
+          echo "  Package: ${{ github.event.inputs.library }}"
+          echo "  Emscripten: ${{ needs.build.outputs.emscripten-version }}"
+          echo "  Archive: ${{ steps.create-archive.outputs.archive-name }}"
+          echo "  Archive size: $(du -h ${{ steps.create-archive.outputs.archive-path }} | cut -f1)"

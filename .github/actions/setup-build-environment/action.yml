@@ -1,0 +1,64 @@
+name: 'Setup Build Environment'
+description: 'Sets up Python, Emscripten, and dependencies for building packages'
+
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.13'
+  emscripten-version:
+    description: 'Emscripten version to use'
+    required: false
+    default: '4.0.15'
+
+outputs:
+  emscripten-version:
+    description: 'The actual Emscripten version that was installed'
+    value: ${{ inputs.emscripten-version }}
+  python-version:
+    description: 'The Python version that was set up'
+    value: ${{ inputs.python-version }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set Up Python
+      uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v6.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Cache pip packages
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-py${{ inputs.python-version }}-${{ hashFiles('**/pyproject.toml', '**/requirements*.txt', '**/setup.py') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-py${{ inputs.python-version }}-
+          ${{ runner.os }}-pip-
+
+    - name: Install Python Dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyodide-build
+
+    - name: Set Up Emscripten
+      uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021  # v14
+      with:
+        version: ${{ inputs.emscripten-version }}
+        actions-cache-folder: 'emsdk-cache'
+
+    - name: Verify installations
+      shell: bash
+      run: |
+        echo "=== Python ==="
+        python --version
+        which python
+        
+        echo "=== Emscripten ==="
+        emcc --version
+        which emcc
+        
+        echo "=== Pyodide Build ==="
+        pyodide --version
+        which pyodide

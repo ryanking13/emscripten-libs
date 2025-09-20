@@ -1,0 +1,12 @@
+package:
+  name: libdummy
+  version: 1.0.0
+
+source:
+  path: src
+
+build:
+  script: |
+    emmake make all
+    emmake make install PREFIX=${WASM_LIBRARY_DIR}
+  type: static_library

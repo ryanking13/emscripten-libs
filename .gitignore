@@ -1,0 +1,47 @@
+# Build directories
+build/
+dist/
+releases/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Emscripten cache
+.emscripten_cache/
+.emscripten_ports/
+
+# Node modules (if any JS tools are used)
+node_modules/
+
+# Archives and packages
+*.tar.gz
+*.zip
+*.tar.bz2
+*.tar.xz

@@ -9,5 +9,5 @@ build:
   script: |
     
     emmake make all
-    emmake make install PREFIX=${PKGDIR/../../releases/}
+    emmake make install PREFIX=${PKGDIR}/../../releases/
   type: static_library

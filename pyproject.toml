@@ -1,2 +1,2 @@
 [tool.pyodide.build]
-skip_emscripten_version_check = 1
+skip_emscripten_version_check = "1"

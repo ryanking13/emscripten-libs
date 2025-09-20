@@ -36,6 +36,7 @@ Thumbs.db
 # Emscripten cache
 .emscripten_cache/
 .emscripten_ports/
+emsdk/
 
 # Node modules (if any JS tools are used)
 node_modules/
@@ -45,3 +46,5 @@ node_modules/
 *.zip
 *.tar.bz2
 *.tar.xz
+
+packages/.libs

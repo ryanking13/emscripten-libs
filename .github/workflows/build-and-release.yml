@@ -17,6 +17,10 @@ on:
         type: boolean
         default: false
 
+  push:
+    branches:
+      - main
+
   pull_request:
     paths:
       - 'packages/**'
@@ -80,11 +84,11 @@ jobs:
           echo "recipes=${CHANGED_RECIPES}" >> $GITHUB_OUTPUT
       
       - name: Build and Release (Pull Request Trigger)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pyodide build-recipes "${{ steps.calculate_recipes_pr.outputs.recipes }}"
+          pyodide build-recipes "${{ steps.calculate_recipes_pr.outputs.recipes || '*' }}"
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2

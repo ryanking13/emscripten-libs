@@ -54,25 +54,7 @@ There is no limit on the name of the library, but we recommand using the prefix 
 
 ### Building Libraries
 
-#### Local Development
-
-You can also run the build script locally:
-
-```bash
-# List available packages
-python tools/build_and_release.py --list-libraries
-
-# Build a specific package
-python tools/build_and_release.py --library dummy_library --dry-run
-
-# Build all packages
-python tools/build_and_release.py --dry-run
-
-# Auto-detect and build changed packages
-python tools/build_and_release.py --auto-detect-changes --dry-run
-```
-
-## 🔧 Requirements
+#### Requirements
 
 - Python 3.13+
 - Up-to-date Emscripten
@@ -91,21 +73,22 @@ cd emsdk
 source ./emsdk_env.sh
 ```
 
-## 🧪 Testing
-
-### Local Testing
-
-Test your package build locally before pushing:
+#### Building
 
 ```bash
-# Test build without release
-python tools/build_and_release.py --library your_package --dry-run
-
-# Check build artifacts
-ls -la build/your_package/
-ls -la dist/
+pyodide build-recipes libdummy
 ```
 
 ## 📋 Available Packages
 
-- `dummy_library` - Example/test package demonstrating the build system
+- `libdummy` - Example/test package demonstrating the build system
+
+## FAQ
+
+- Why only static libraries?
+
+Shared libraries need to be dynamically linked at runtime.
+However, dynamic linking is not WASM standard, and Emscripten does not garantee the backward compatibility of the linking libraries.
+Therefore, shared libraries need to be built with strictly same compiler flags and version of Emscripten used for Pyodide.
+
+Meanwhile, static libraries can be built with any version of Emscripten (ideally), if the flags are properly set.

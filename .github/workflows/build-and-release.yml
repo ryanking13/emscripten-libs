@@ -1,4 +1,4 @@
-name: Build and Release Static Packages
+name: Build and Release
 
 on:
   workflow_dispatch:
@@ -39,6 +39,14 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v6.0
         with:
           python-version: '3.13'
+
+      - name: Cache pip packages
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a  # v4.1.2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip
+          restore-keys: |
+            ${{ runner.os }}-pip
 
       - name: Install Python Dependencies
         run: |
@@ -98,7 +106,6 @@ jobs:
           path: |
             build/
             dist/
-            *.log
           retention-days: 30
 
       - name: Upload Release Assets
